@@ -1,12 +1,35 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from google import genai
 from google.genai import types
 import os
 import json
 
+# Set up Google Cloud credentials from environment
+if 'GOOGLE_APPLICATION_CREDENTIALS_JSON' in os.environ:
+    import base64
+    import tempfile
+    
+    # Get the encoded credentials
+    encoded_credentials = os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON']
+    
+    # Decode the credentials
+    decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8')
+    
+    # Write the credentials to a temporary file
+    fd, path = tempfile.mkstemp()
+    with os.fdopen(fd, 'w') as tmp:
+        tmp.write(decoded_credentials)
+    
+    # Set the environment variable to point to the temporary file
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = path
+
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -14,10 +37,10 @@ def chat():
     user_message = data.get('message', '')
     conversation_history = data.get('history', [])
     
+    # Initialize the Gemini client
     client = genai.Client(
-        vertexai=True,
-        project="mindful-life-457009-t7",
-        location="us-central1",
+        project=os.environ.get("GOOGLE_CLOUD_PROJECT", "mindful-life-457009-t7"),
+        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
     )
 
     si_text1 = """Initial Greeting: Begin the conversation with: \"Hello, how are you! Welcome to the RACS interview, what's the specialty you are applying for?\" After the user responds with their specialty, confirm their application country (New Zealand or Australia) before proceeding with the first scenario.
@@ -97,16 +120,19 @@ Provide a comprehensive final evaluation when the candidate indicates they are f
         system_instruction=[types.Part.from_text(text=si_text1)],
     )
 
-    # Generate response
-    response = client.models.generate_content(
-        model=model,
-        contents=contents,
-        config=generate_content_config,
-    )
-    
-    bot_response = response.text
-    
-    return jsonify({"response": bot_response})
+    try:
+        # Generate response
+        response = client.models.generate_content(
+            model=model,
+            contents=contents,
+            config=generate_content_config,
+        )
+        
+        bot_response = response.text
+        return jsonify({"response": bot_response})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
