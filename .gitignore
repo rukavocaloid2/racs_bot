@@ -1,35 +1,32 @@
-# Environment
-.env
-.venv
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 env/
 venv/
 ENV/
-
-# Google Cloud credentials
-*.json
-!package.json
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
 *.egg-info/
-.installed.cfg
-*.egg
+dist/
+build/
+*.so
 
-# Misc
-.DS_Store
+# Environment variables
+.env
+
+# Service account keys
+mindful-life-457009-t7-eb15a4d06fe7.json
+*.json # Be careful if you need other JSON files, be more specific
+
+# IDE / OS files
+.idea/
+.vscode/
+*.DS_Store

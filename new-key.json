@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "mindful-life-457009-t7",
+  "private_key_id": "3f5c5e97f135a4aa12fe1eae5a1435cc12c2e204",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCpbTICoNo0mc1W\nV4LbVUeXpJcQ+CQsVf12OeirZDa+MnRQh21rOdijPtmoOi8NW/DMukGMnDAlHFJ2\niMKD1zT8lwzRUqzdDBcjqE2wUECjEYzNyTLatnLQwTVY6Vs8sGuVgC46R04AOk3p\niFRwsm7v2xbRP83DwX7B9x7m2VAKftmSW7w4gVewVTwnkGpyNC4JZX9wyDY4K5Ww\ni2gjKsBaHe+5Q9bKgnyqwu8dVbDu4Wtr99naBJ86lnFbHQRkP4kx1MWjh8neEhMs\nYJ+bsSxOQkQLvc50KNDC7ov6XkHBX38O9OTuhg4vzt00QPseWi6xNw9gU05uqzzA\nuN39W3yTAgMBAAECggEARp1ncab/K1tLNQhmVupVW4PTHtR9pyjz6jm6muy60E0R\nI5s+ZKmIfImuiCowAD5ov7uFpIhYnK8QQ60+fVrOD9UZF4mA2OS4JDl6n9jjB9RB\nvmd0VaojcpSEmpkwWLwjKv1wxwN/JCMo5APZRdto13mWKgKQzV0xasCH1amPbb/B\nN8DGCOUxNSpAr0ScHr36nznyqIlxMjLpImVFvDQkX07XnMRLMS+4qE/BKRDId4vH\nHvrJW+36vPsd4Q2MVm1EC/4CjC4Mg/w1/pBzAMZJsqB7vgUFijb28X2LrSVftJpE\nuo0rnLZXTLmJUQD/FskoDvh46PPz/TTQppLB2FMVoQKBgQDa0mGkas7Uvz/BxVS1\nvR3w6WV3MPNzwfb2JMLY16t1JhNBBim7rHfxpqLOeZ75hk4Zter/bpsL7xTwTNpV\n0zIIeYDge2R6Io/SRz8r9yWoIkAgwvI8sIYl9nCXLl+M6NRpadJeIn2+2nBAbsYq\n25BmXvwWjvPljUri9jN28Mt38QKBgQDGNmAQWKy1jEXZXZAp+kfLlGDFxKlXS3CC\nEVny0pQ8L1W8Oi76YqVkF+Mx3f/mA1g9hpv7OYfcIE+gfP9nr3NHocS4pY9IBzqY\nJHQ9adg0P0HMn/VTjyDCKyyV9CUMm1ftpX3w3NPo/5tOVLYSm7o+tXnxyObM15WV\n+a/wUnEgwwKBgQCFIB71R2GjvuKMAYCCvJZ9nZD0TZyfHS8hGsZL5BHUyKBIG/bB\nzbB/HLDJyuYzykizjaB1XBYJ0Z88fpUKR92VmE4WxBshzusOs/ezyL1pJ8U56UA0\nOfSzHdXrs/O/p1qq8w1f5b34oa5PFNWM911HWpwlIT0yt54KrFwtDVvMEQKBgE+G\nRWiJi1GTo/qf1VViOyfssh7m1mJVvCATQhlwb1TuUOGiHnMK3PyZsOezABaSxPZ6\naV6UKHQi6o+jVv2MoR3eQ4Upt6DYdaPRDGoPa1UbBBVLICyUQjplBBBt0eeK8+4+\n9ZaLouHam78DscEphcHfIbvmNON+o192vCYZjZXtAoGAG8Ua+8svYTru7Q0//3gR\nA1aCOXDQnClMRCIqNEi1IjgxM1nBUSOO1+ghQQXpl+ZErjN5bszOjKNGestcAbKS\nSHMowASJlkgFZ6VaXSrsLAGqrIlK66yZ2JJnShpQ8cLGGKRSn47abAZ6/EbP958e\n9BbmVmE+AAWmtjqANA4/2bM=\n-----END PRIVATE KEY-----\n",
+  "client_email": "heroku-racs-sa@mindful-life-457009-t7.iam.gserviceaccount.com",
+  "client_id": "111590566778606054865",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/heroku-racs-sa%40mindful-life-457009-t7.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
