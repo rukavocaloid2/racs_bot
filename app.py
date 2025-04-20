@@ -17,7 +17,7 @@ GCP_LOCATION = os.environ.get("GOOGLE_LOCATION")
 MODEL_ID = "gemini-2.0-flash-001" # Or consider making this an env var too
 
 # --- Authentication & Vertex AI Initialization ---
-SERVICE_ACCOUNT_KEY_PATH = "/Users/jennyhuang/racs_bot/mindful-life-457009-t7-eb15a4d06fe7.json" # Writable path on Heroku
+SERVICE_ACCOUNT_KEY_PATH = "/tmp/mindful-life-457009-t7-eb15a4d06fe7.json" # Writable path on Heroku
 
 def setup_credentials_and_vertexai():
     """Sets up credentials from env var and initializes Vertex AI."""
