@@ -1,106 +1,23 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>RACS Interview Simulator</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        #chat-container {
-            border: 1px solid #ccc;
-            padding: 15px;
-            height: 400px;
-            overflow-y: auto;
-            margin-bottom: 10px;
-        }
-        .user-message {
-            background-color: #e6f7ff;
-            padding: 8px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-        .bot-message {
-            background-color: #f0f0f0;
-            padding: 8px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-        #input-container {
-            display: flex;
-        }
-        #user-input {
-            flex-grow: 1;
-            padding: 8px;
-        }
-        button {
-            padding: 8px 16px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RACS Interview Bot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>RACS Interview Simulator</h1>
-    <div id="chat-container"></div>
-    <div id="input-container">
-        <input type="text" id="user-input" placeholder="Type your message...">
-        <button onclick="sendMessage()">Send</button>
+    <h1>RACS Interview Practice Bot</h1>
+    <div id="chatbox">
+        <div class="message bot-message">
+            <p>Please type your first message (e.g., "hi") to begin the interview simulation.</p>
+        </div>
+    </div>
+    <div id="inputArea">
+        <input type="text" id="userInput" placeholder="Type your message..." autocomplete="off">
+        <button id="sendButton">Send</button>
     </div>
 
-    <script>
-        const chatContainer = document.getElementById('chat-container');
-        const userInput = document.getElementById('user-input');
-
-        // Initialize the chat with a welcome message
-        window.onload = function() {
-            appendMessage('Hello, how are you! Welcome to the RACS interview, what\'s the specialty you are applying for?', 'bot');
-        };
-
-        function sendMessage() {
-            const message = userInput.value.trim();
-            if (message === '') return;
-
-            // Display user message
-            appendMessage(message, 'user');
-            userInput.value = '';
-
-            // Send to backend
-            fetch('/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: message }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                appendMessage(data.response, 'bot');
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                appendMessage('Sorry, there was an error processing your request.', 'bot');
-            });
-        }
-
-        function appendMessage(message, sender) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = sender === 'user' ? 'user-message' : 'bot-message';
-            messageDiv.textContent = message;
-            chatContainer.appendChild(messageDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-
-        // Send message when Enter key is pressed
-        userInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
-    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
