@@ -1,9 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RACS Interview Bot</title>
+    <title>RACS Interview Simulator</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,174 +9,98 @@
             margin: 0 auto;
             padding: 20px;
         }
-        .chat-container {
-            width: 100%;
-            height: 500px;
+        #chat-container {
             border: 1px solid #ccc;
-            border-radius: 8px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        .chat-messages {
-            flex: 1;
+            padding: 15px;
+            height: 400px;
             overflow-y: auto;
-            padding: 10px;
-            background-color: #f9f9f9;
+            margin-bottom: 10px;
         }
-        .chat-input-area {
+        .user-message {
+            background-color: #e6f7ff;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .bot-message {
+            background-color: #f0f0f0;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        #input-container {
             display: flex;
-            border-top: 1px solid #ccc;
-            padding: 10px;
-            background-color: white;
         }
         #user-input {
-            flex: 1;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            flex-grow: 1;
             padding: 8px;
-            margin-right: 8px;
         }
-        #send-button {
+        button {
+            padding: 8px 16px;
             background-color: #4CAF50;
             color: white;
             border: none;
-            border-radius: 4px;
-            padding: 8px 16px;
             cursor: pointer;
-        }
-        .message {
-            max-width: 80%;
-            padding: 8px 12px;
-            border-radius: 18px;
-            margin-bottom: 10px;
-            word-break: break-word;
-        }
-        .user-message {
-            background-color: #DCF8C6;
-            margin-left: auto;
-        }
-        .bot-message {
-            background-color: white;
-            margin-right: auto;
-        }
-        .status {
-            margin-bottom: 20px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
         }
     </style>
 </head>
 <body>
-    <h1>RACS Interview Practice Bot</h1>
-    
-    <div class="status">
-        <h3>Status: {{ auth_status }}</h3>
-        <p>If you encounter issues, please contact support.</p>
-    </div>
-    
-    <div class="chat-container">
-        <div class="chat-messages" id="chat-messages"></div>
-        <div class="chat-input-area">
-            <input type="text" id="user-input" placeholder="Type your message...">
-            <button id="send-button">Send</button>
-        </div>
+    <h1>RACS Interview Simulator</h1>
+    <div id="chat-container"></div>
+    <div id="input-container">
+        <input type="text" id="user-input" placeholder="Type your message...">
+        <button onclick="sendMessage()">Send</button>
     </div>
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const chatMessages = document.getElementById('chat-messages');
+        const chatContainer = document.getElementById('chat-container');
         const userInput = document.getElementById('user-input');
-        const sendButton = document.getElementById('send-button');
-        
-        // API endpoint
-        const API_URL = '/chat';
-        
-        // Store conversation history
-        let conversationHistory = [];
-        
-        // Add initial greeting
-        addBotMessage("Hello, how are you! Welcome to the RACS interview, what's the specialty you are applying for?");
-        
-        sendButton.addEventListener('click', sendMessage);
+
+        // Initialize the chat with a welcome message
+        window.onload = function() {
+            appendMessage('Hello, how are you! Welcome to the RACS interview, what\'s the specialty you are applying for?', 'bot');
+        };
+
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (message === '') return;
+
+            // Display user message
+            appendMessage(message, 'user');
+            userInput.value = '';
+
+            // Send to backend
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                appendMessage(data.response, 'bot');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                appendMessage('Sorry, there was an error processing your request.', 'bot');
+            });
+        }
+
+        function appendMessage(message, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = sender === 'user' ? 'user-message' : 'bot-message';
+            messageDiv.textContent = message;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Send message when Enter key is pressed
         userInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 sendMessage();
             }
         });
-        
-        function sendMessage() {
-            const message = userInput.value.trim();
-            if (message === '') return;
-            
-            // Add user message to chat
-            addUserMessage(message);
-            
-            // Clear input
-            userInput.value = '';
-            
-            // Add loading message
-            const loadingId = addBotMessage("Thinking...");
-            
-            // Send to API
-            fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: message,
-                    history: conversationHistory
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Remove loading message
-                removeMessage(loadingId);
-                
-                // Add bot response
-                addBotMessage(data.response);
-                
-                // Add to history
-                conversationHistory.push(
-                    { role: "user", content: message },
-                    { role: "assistant", content: data.response }
-                );
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                removeMessage(loadingId);
-                addBotMessage('Sorry, there was an error. Please try again.');
-            });
-        }
-        
-        function addUserMessage(message) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message user-message';
-            messageDiv.textContent = message;
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
-        function addBotMessage(message) {
-            const messageDiv = document.createElement('div');
-            const id = 'msg-' + Date.now();
-            messageDiv.id = id;
-            messageDiv.className = 'message bot-message';
-            messageDiv.textContent = message;
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-            return id;
-        }
-        
-        function removeMessage(id) {
-            const messageDiv = document.getElementById(id);
-            if (messageDiv) {
-                messageDiv.remove();
-            }
-        }
-    });
     </script>
 </body>
 </html>
