@@ -10,6 +10,7 @@ from flask import Flask, request, jsonify, render_template
 # Use vertexai library for Gemini models
 from vertexai.generative_models import GenerativeModel, Part, Content, GenerationConfig, SafetySetting, HarmCategory
 import google.cloud.aiplatform as aiplatform # For initialization
+import google.oauth2.service_account # <-- Import for explicit credential loading
 
 # --- Configuration (Loaded from Environment Variables) ---
 GCP_PROJECT_ID = os.environ.get("GOOGLE_PROJECT_ID")
@@ -17,45 +18,69 @@ GCP_LOCATION = os.environ.get("GOOGLE_LOCATION")
 MODEL_ID = "gemini-2.0-flash-001" # Or consider making this an env var too
 
 # --- Authentication & Vertex AI Initialization ---
+# Using the path that appeared in your logs
 SERVICE_ACCOUNT_KEY_PATH = "/tmp/mindful-life-457009-t7-eb15a4d06fe7.json" # Writable path on Heroku
 
 def setup_credentials_and_vertexai():
-    """Sets up credentials from env var and initializes Vertex AI."""
+    """
+    Sets up credentials from env var, adds debugging, initializes Vertex AI
+    explicitly, and returns the credentials object or None.
+    """
     print("Setting up credentials and initializing Vertex AI...")
     credentials_json_content = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+
+    # --- DEBUGGING START ---
     if not credentials_json_content:
-        print("ERROR: GOOGLE_CREDENTIALS_JSON environment variable not set.")
-        # In a real app, you might raise an exception or exit
-        return False # Indicate failure
+        print("ERROR: GOOGLE_CREDENTIALS_JSON environment variable is not set or empty.")
+        return None # Indicate failure and return None for credentials
+    else:
+        # Print first and last 50 chars to check if it looks like JSON
+        print(f"DEBUG: GOOGLE_CREDENTIALS_JSON (first 50 chars): {credentials_json_content[:50]}")
+        print(f"DEBUG: GOOGLE_CREDENTIALS_JSON (last 50 chars): {credentials_json_content[-50:]}")
+    # --- DEBUGGING END ---
 
     try:
         # Write the credentials JSON content to the temp file
         with open(SERVICE_ACCOUNT_KEY_PATH, "w") as f:
             f.write(credentials_json_content)
-        # Set the environment variable for Application Default Credentials (ADC)
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = SERVICE_ACCOUNT_KEY_PATH
         print(f"Credentials file created at: {SERVICE_ACCOUNT_KEY_PATH}")
+
+        # --- Explicitly load credentials from the file we just wrote ---
+        credentials = google.oauth2.service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_KEY_PATH
+        )
+        print("DEBUG: Successfully loaded credentials object from file.")
+        # ---
+
     except Exception as e:
-        print(f"ERROR writing credentials file: {e}")
+        # This includes JSONDecodeError if the content written was invalid
+        print(f"ERROR writing credentials file or loading credentials object: {e}")
         traceback.print_exc()
-        return False # Indicate failure
+        return None # Indicate failure
 
     if not GCP_PROJECT_ID or not GCP_LOCATION:
         print("ERROR: GOOGLE_PROJECT_ID or GOOGLE_LOCATION environment variables not set.")
-        return False # Indicate failure
+        return None # Indicate failure
 
     try:
-        # Initialize the Vertex AI client library
-        aiplatform.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
-        print(f"Vertex AI SDK Initialized for project '{GCP_PROJECT_ID}' in location '{GCP_LOCATION}'")
-        return True # Indicate success
+        # Initialize the Vertex AI client library, passing credentials explicitly
+        aiplatform.init(
+            project=GCP_PROJECT_ID,
+            location=GCP_LOCATION,
+            credentials=credentials # Pass the loaded credentials object
+        )
+        # Log the project/location the SDK actually initialized with
+        print(f"Vertex AI SDK Initialized for project '{aiplatform.initializer.global_config.project}' in location '{aiplatform.initializer.global_config.location}' using provided credentials.")
+        return credentials # Return credentials object on success
     except Exception as e:
-        print(f"ERROR initializing Vertex AI SDK: {e}")
+        print(f"ERROR initializing Vertex AI SDK with explicit credentials: {e}")
         traceback.print_exc()
-        return False # Indicate failure
+        return None # Indicate failure
 
-# Call the setup function when the script loads
-INITIALIZATION_SUCCESSFUL = setup_credentials_and_vertexai()
+# Call the setup function when the script loads and store the result
+LOADED_CREDENTIALS = setup_credentials_and_vertexai()
+# Update success flag based on whether credentials loaded successfully
+INITIALIZATION_SUCCESSFUL = LOADED_CREDENTIALS is not None
 
 # --- Flask App Initialization ---
 # Flask automatically looks for 'templates' and 'static' folders
@@ -106,17 +131,18 @@ def generate_response(history_content):
     Returns:
         The generated text response from the model, or an error string.
     """
+    # Use the global INITIALIZATION_SUCCESSFUL flag (set after setup runs)
     if not INITIALIZATION_SUCCESSFUL:
         print("ERROR: Vertex AI not initialized successfully. Cannot generate response.")
         return "Error: Backend server configuration issue. Please check logs."
 
     try:
-        # Initialize the GenerativeModel class with the specific model ID
-        # and pass the system instruction during initialization.
+        # Initialize the GenerativeModel class. It should use the credentials
+        # set globally via aiplatform.init() when we passed them explicitly.
         model = GenerativeModel(
             MODEL_ID,
-            system_instruction=SI_TEXT1 # Pass system instruction here
-            )
+            system_instruction=SI_TEXT1
+        )
 
         # Define generation configuration
         generation_config = GenerationConfig(
@@ -150,8 +176,7 @@ def generate_response(history_content):
         print("Raw API Response received.") # Log reception
         # print(f"DEBUG Response object: {response}") # Detailed debug log (optional)
 
-        # Extract the text response safely
-        # Check candidate and parts structure
+        # Extract the text response safely (Same logic as before)
         if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
              full_response_text = "".join(part.text for part in response.candidates[0].content.parts if hasattr(part, 'text'))
              if full_response_text:
@@ -160,15 +185,12 @@ def generate_response(history_content):
              else:
                   print("Warning: Response candidate parts found but contained no text.")
                   return "Error: Model returned empty parts."
-        # Fallback check for simple text attribute (less common for generative models)
         elif hasattr(response, 'text') and response.text:
             print("Successfully extracted text from response.text attribute.")
             return response.text
-        # Handle cases where the response might be blocked or empty
         elif response.candidates and response.candidates[0].finish_reason:
              reason = response.candidates[0].finish_reason.name
              print(f"Warning: Model response finished with reason: {reason}")
-             # You might want specific messages for SAFETY, RECITATION, etc.
              if reason == "SAFETY":
                  return "Error: The response was blocked due to safety settings."
              else:
@@ -205,57 +227,54 @@ def chat_endpoint():
          return jsonify({"error": "'history' must be a list of message objects"}), 400 # Bad Request
 
     # --- Convert raw history from JSON to Vertex AI Content objects ---
+    # (This logic remains the same as your provided code)
     history_content = []
     try:
         for item in history_raw:
             role = item.get("role")
             parts_raw = item.get("parts")
 
-            # Basic validation of each history item
             if not role or role.lower() not in ["user", "model"] or \
                not parts_raw or not isinstance(parts_raw, list):
                 print(f"Skipping invalid history item format: {item}")
-                continue # Skip malformed items silently or return error
+                continue
 
-            # Extract text from parts (assuming format [{"text": "..."}, ...])
             text_parts = [Part.from_text(p.get("text","")) for p in parts_raw if isinstance(p, dict) and "text" in p]
 
             if not text_parts:
                  print(f"Skipping history item with no valid text parts: {item}")
-                 continue # Skip items where no text could be extracted
+                 continue
 
-            # Create Content object with validated role and parts
             history_content.append(Content(role=role.lower(), parts=text_parts))
 
         if not history_content and history_raw:
-             # If input had items but none were valid
              return jsonify({"error": "No valid message content found in 'history'"}), 400
 
     except Exception as e:
         print(f"Error processing history JSON: {e}")
         traceback.print_exc()
-        return jsonify({"error": "Server error processing history format"}), 500 # Internal Server Error
+        return jsonify({"error": "Server error processing history format"}), 500
     # --------------------------------------------------------------------
 
     # Call the backend function to get the response from Gemini
     response_text = generate_response(history_content)
 
-    # Check if the response indicates an internal error from generate_response
-    if response_text and response_text.startswith("Error:"):
-         # Return a server error status code if the backend had issues
+    # Determine status code based on response_text content
+    status_code = 500 if response_text and response_text.startswith("Error:") else 200
+    response_data = {"error": response_text} if status_code == 500 else {"response": response_text}
+
+    if status_code == 500:
          print(f"Returning error to client: {response_text}")
-         return jsonify({"error": response_text}), 500 # Internal Server Error
-    else:
-        # Return the successful response from the bot
-        return jsonify({"response": response_text})
+
+    return jsonify(response_data), status_code
 
 
 # Serve the HTML web interface on the root URL
 @app.route('/')
 def index():
     """Renders the main chat interface HTML page."""
+    # Use the global flag set after setup runs
     if not INITIALIZATION_SUCCESSFUL:
-         # Optionally show an error page if initialization failed
          return "Error: Backend server failed to initialize. Please check logs.", 503 # Service Unavailable
     return render_template('index.html')
 
