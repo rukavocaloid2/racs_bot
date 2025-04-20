@@ -18,13 +18,11 @@ GCP_LOCATION = os.environ.get("GOOGLE_LOCATION")
 MODEL_ID = "gemini-2.0-flash-001" # Or consider making this an env var too
 
 # --- Authentication & Vertex AI Initialization ---
-# Using the path that appeared in your logs
-SERVICE_ACCOUNT_KEY_PATH = "/tmp/mindful-life-457009-t7-eb15a4d06fe7.json" # Writable path on Heroku
 
 def setup_credentials_and_vertexai():
     """
-    Sets up credentials from env var, adds debugging, initializes Vertex AI
-    explicitly, and returns the credentials object or None.
+    Sets up credentials from env var and initializes Vertex AI
+    explicitly using direct JSON parsing, avoiding file operations.
     """
     print("Setting up credentials and initializing Vertex AI...")
     credentials_json_content = os.environ.get("GOOGLE_CREDENTIALS_JSON")
@@ -34,27 +32,24 @@ def setup_credentials_and_vertexai():
         print("ERROR: GOOGLE_CREDENTIALS_JSON environment variable is not set or empty.")
         return None # Indicate failure and return None for credentials
     else:
-        # Print first and last 50 chars to check if it looks like JSON
-        print(f"DEBUG: GOOGLE_CREDENTIALS_JSON (first 50 chars): {credentials_json_content[:50]}")
-        print(f"DEBUG: GOOGLE_CREDENTIALS_JSON (last 50 chars): {credentials_json_content[-50:]}")
+        # Print first and last 20 chars to check if it looks like JSON (without exposing full credentials)
+        print(f"DEBUG: GOOGLE_CREDENTIALS_JSON (first 20 chars): {credentials_json_content[:20]}...")
+        print(f"DEBUG: GOOGLE_CREDENTIALS_JSON (last 20 chars): ...{credentials_json_content[-20:]}")
     # --- DEBUGGING END ---
 
     try:
-        # Write the credentials JSON content to the temp file
-        with open(SERVICE_ACCOUNT_KEY_PATH, "w") as f:
-            f.write(credentials_json_content)
-        print(f"Credentials file created at: {SERVICE_ACCOUNT_KEY_PATH}")
-
-        # --- Explicitly load credentials from the file we just wrote ---
-        credentials = google.oauth2.service_account.Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_KEY_PATH
+        # Parse the credentials JSON directly from string instead of writing to file
+        service_account_info = json.loads(credentials_json_content)
+        credentials = google.oauth2.service_account.Credentials.from_service_account_info(
+            service_account_info
         )
-        print("DEBUG: Successfully loaded credentials object from file.")
-        # ---
-
+        print("DEBUG: Successfully loaded credentials object from JSON string.")
+    except json.JSONDecodeError as je:
+        print(f"ERROR: Invalid JSON in GOOGLE_CREDENTIALS_JSON: {je}")
+        traceback.print_exc()
+        return None
     except Exception as e:
-        # This includes JSONDecodeError if the content written was invalid
-        print(f"ERROR writing credentials file or loading credentials object: {e}")
+        print(f"ERROR loading credentials object: {e}")
         traceback.print_exc()
         return None # Indicate failure
 
@@ -76,15 +71,6 @@ def setup_credentials_and_vertexai():
         print(f"ERROR initializing Vertex AI SDK with explicit credentials: {e}")
         traceback.print_exc()
         return None # Indicate failure
-
-# Call the setup function when the script loads and store the result
-LOADED_CREDENTIALS = setup_credentials_and_vertexai()
-# Update success flag based on whether credentials loaded successfully
-INITIALIZATION_SUCCESSFUL = LOADED_CREDENTIALS is not None
-
-# --- Flask App Initialization ---
-# Flask automatically looks for 'templates' and 'static' folders
-app = Flask(__name__)
 
 # --- System Instruction / Prompt Definition ---
 # Using the text provided previously
@@ -119,6 +105,17 @@ Maintain a natural and conversational flow while adhering to the structured form
 Remember the conversation history to avoid repetition and tailor future scenarios appropriately.
 Always offer the option to view an exemplary answer after your feedback on each scenario.
 Provide a comprehensive final evaluation when the candidate indicates they are finished."""
+
+# --- Flask App Initialization ---
+# Create the app instance first
+app = Flask(__name__)
+
+# Then attempt to initialize credentials (this will happen during app startup)
+print("Starting server and attempting to initialize Vertex AI...")
+LOADED_CREDENTIALS = setup_credentials_and_vertexai()
+# Update success flag based on whether credentials loaded successfully
+INITIALIZATION_SUCCESSFUL = LOADED_CREDENTIALS is not None
+print(f"Initialization successful: {INITIALIZATION_SUCCESSFUL}")
 
 # --- Gemini Model Interaction Logic ---
 def generate_response(history_content):
@@ -174,7 +171,6 @@ def generate_response(history_content):
         )
 
         print("Raw API Response received.") # Log reception
-        # print(f"DEBUG Response object: {response}") # Detailed debug log (optional)
 
         # Extract the text response safely (Same logic as before)
         if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
@@ -200,13 +196,25 @@ def generate_response(history_content):
             print(f"DEBUG Response structure: {response}") # Log structure for debugging
             return "Error: Could not process the model's response format."
 
-
     except Exception as e:
         print(f"ERROR during Gemini API call: {e}")
         traceback.print_exc() # Log the full traceback for debugging
         return "Error: An exception occurred while communicating with the AI model."
 
 # --- Flask Routes ---
+
+@app.route('/health')
+def health():
+    """Health check endpoint to help diagnose issues"""
+    status = {
+        "status": "online",
+        "google_creds_present": bool(os.environ.get("GOOGLE_CREDENTIALS_JSON")),
+        "project_id_present": bool(GCP_PROJECT_ID),
+        "location_present": bool(GCP_LOCATION),
+        "initialization_successful": INITIALIZATION_SUCCESSFUL,
+        "model_id": MODEL_ID
+    }
+    return jsonify(status)
 
 @app.route('/chat', methods=['POST'])
 def chat_endpoint():
@@ -227,7 +235,6 @@ def chat_endpoint():
          return jsonify({"error": "'history' must be a list of message objects"}), 400 # Bad Request
 
     # --- Convert raw history from JSON to Vertex AI Content objects ---
-    # (This logic remains the same as your provided code)
     history_content = []
     try:
         for item in history_raw:
@@ -275,9 +282,30 @@ def index():
     """Renders the main chat interface HTML page."""
     # Use the global flag set after setup runs
     if not INITIALIZATION_SUCCESSFUL:
-         return "Error: Backend server failed to initialize. Please check logs.", 503 # Service Unavailable
-    return render_template('index.html')
+         return "Error: Backend server failed to initialize. Please check logs and visit /health for diagnostic information.", 503 # Service Unavailable
+    
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        print(f"ERROR rendering index.html template: {e}")
+        traceback.print_exc()
+        return f"Error rendering template: {str(e)}", 500
 
+
+# Route to handle the case where template might be missing
+@app.route('/debug')
+def debug():
+    """Simple debug page that doesn't require templates"""
+    return """
+    <html>
+        <head><title>RACS Bot Debug</title></head>
+        <body>
+            <h1>RACS Bot Debug Page</h1>
+            <p>The server is running. Check the <a href="/health">health endpoint</a> for status information.</p>
+            <p>If you're seeing a 503 error on the main page, it's likely due to Vertex AI initialization issues.</p>
+        </body>
+    </html>
+    """
 
 # --- Run the Flask App ---
 if __name__ == '__main__':
