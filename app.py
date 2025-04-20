@@ -19,6 +19,18 @@ MODEL_ID = "gemini-2.0-flash-001" # Or consider making this an env var too
 
 # --- Authentication & Vertex AI Initialization ---
 
+print("Setting up credentials and initializing Vertex AI...")
+
+try:
+    aiplatform.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
+    print(f"✅ Vertex AI SDK Initialized for project '{GCP_PROJECT_ID}' in location '{GCP_LOCATION}'")
+    initialization_successful = True
+except Exception as e:
+    print("❌ Vertex AI SDK failed to initialize")
+    import traceback
+    traceback.print_exc()
+    initialization_successful = False
+
 def setup_credentials_and_vertexai():
     """
     Sets up credentials from env var and initializes Vertex AI
